@@ -1,0 +1,288 @@
+---
+title: "Shiny exercises"
+author: "Paul Moon"
+date: "2024-11-15"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(shiny)
+```
+
+Problem 1.1
+```{r}
+library(shiny)
+ui <- fluidPage(
+  textInput("username", "Enter your name:"),
+  textOutput("greeting")
+)
+
+server <- function(input, output) {
+  output$greeting <- renderText({
+    paste("Hello", input$username)
+  })
+}
+```
+
+Problem 1.2
+```{r}
+ui <- fluidPage(
+  sliderInput("slider_value", label = "Select a number", min = 1, max = 50, value = 25),
+  "Result (value * 5):",
+  textOutput("calculation")
+)
+
+server <- function(input, output, session) {
+  output$calculation <- renderText({
+    input$slider_value * 5
+  })
+}
+
+shinyApp(ui, server)
+```
+
+Problem 1.3
+```{r}
+ui <- fluidPage(
+  sliderInput("first_value", label = "First Value", min = 1, max = 50, value = 20),
+  sliderInput("second_value", label = "Second Value", min = 1, max = 50, value = 10),
+  "The product of the two values is:",
+  textOutput("multiplication")
+)
+
+server <- function(input, output, session) {
+  output$multiplication <- renderText({
+    input$first_value * input$second_value
+  })
+}
+
+shinyApp(ui, server)
+```
+
+Problem 1.4
+```{r}
+ui <- fluidPage(
+  sliderInput("input_x", "X Value", min = 1, max = 50, value = 15),
+  sliderInput("input_y", "Y Value", min = 1, max = 50, value = 10),
+  "X * Y:", textOutput("result"),
+  "(X * Y) + 5:", textOutput("plus5"),
+  "(X * Y) + 10:", textOutput("plus10")
+)
+
+server <- function(input, output, session) {
+  calc_product <- reactive({
+    input$input_x * input$input_y
+  })
+
+  output$result <- renderText({
+    calc_product()
+  })
+
+  output$plus5 <- renderText({
+    calc_product() + 5
+  })
+
+  output$plus10 <- renderText({
+    calc_product() + 10
+  })
+}
+
+shinyApp(ui, server)
+```
+
+Problem 1.5
+```{r}
+library(ggplot2)
+
+available_datasets <- c("economics", "faithfuld", "seals")
+ui <- fluidPage(
+  selectInput("dataset_choice", "Select Dataset", choices = available_datasets),
+  verbatimTextOutput("dataset_summary"),
+  plotOutput("dataset_plot")
+)
+
+server <- function(input, output, session) {
+  selected_data <- reactive({
+    get(input$dataset_choice, "package:ggplot2")
+  })
+
+  output$dataset_summary <- renderPrint({
+    summary(selected_data())
+  })
+
+  output$dataset_plot <- renderPlot({
+    data <- selected_data()
+
+    if (input$dataset_choice == "economics") {
+      ggplot(data, aes(x = date, y = unemploy)) +
+        geom_line() +
+        labs(title = "Unemployment Over Time", x = "Date", y = "Unemployment")
+    } else if (input$dataset_choice == "faithfuld") {
+      ggplot(data, aes(x = waiting, y = eruptions, fill = density)) +
+        geom_tile() +
+        labs(title = "Eruption Patterns", x = "Waiting Time", y = "Eruption Duration")
+    } else if (input$dataset_choice == "seals") {
+      ggplot(data, aes(x = long, y = lat)) +
+        geom_point(alpha = 0.1) +
+        labs(title = "Seal Locations", x = "Longitude", y = "Latitude")
+    }
+  }, res = 96)
+}
+
+shinyApp(ui, server)
+```
+
+Problem 3.1
+```{r}
+ui <- fluidPage(
+  textInput("name", "What's your name?"),
+  textOutput("greeting")
+)
+
+server <- function(input, output, session) {
+  output$greeting <- renderText({
+    paste0("Hello ", input$name)
+  })
+}
+
+shinyApp(ui = ui, server = server)
+```
+
+Problem 4
+
+Animated Slider
+```{r}
+ui <- fluidPage(
+  titlePanel("Animated Slider Example"),
+  sliderInput("slider", "Select a value:", min = 0, max = 100, value = 0, step = 5, animate = TRUE),
+  textOutput("current_value")
+)
+
+server <- function(input, output, session) {
+  output$current_value <- renderText({
+    paste("Current value is:", input$slider)
+  })
+}
+
+shinyApp(ui, server)
+```
+
+Accessible Plot
+```{r}
+ui <- fluidPage(
+  plotOutput("random_plot", width = "700px", height = "300px")
+)
+
+server <- function(input, output, session) {
+  output$random_plot <- renderPlot({
+    plot(1:5, runif(5), main = "Random Scatterplot", xlab = "Index", ylab = "Value", pch = 16)
+  }, res = 96)
+}
+
+shinyApp(ui, server)
+```
+
+Problem 4.3
+```{r}
+ui <- fluidPage(
+  titlePanel("Injury Data Summary"),
+  sidebarLayout(
+    sidebarPanel(
+      selectInput("prod_code", "Select Product Code:", choices = unique(injuries$product_code)),
+      numericInput("num_rows", "Number of Rows to Show:", value = 10, min = 1, step = 1)
+    ),
+    mainPanel(
+      tableOutput("diag"),
+      tableOutput("body_part"),
+      tableOutput("location"),
+      plotOutput("age_sex")
+    )
+  )
+)
+server <- function(input, output, session) {
+  selected <- reactive({
+    filter(injuries, product_code == input$prod_code)
+  })
+
+  summary_data <- reactive({
+    selected_data <- selected()
+    summary_table <- selected_data %>%
+      group_by(age, sex) %>%
+      summarise(injury_count = n(), .groups = "drop") %>%
+      mutate(injury_rate = injury_count / sum(injury_count) * 100)
+    summary_table
+  })
+
+  output$diag <- renderTable({
+    head(summary_data() %>% select(diagnosis, injury_count), input$num_rows)
+  })
+
+  output$body_part <- renderTable({
+    head(summary_data() %>% select(body_part, injury_count), input$num_rows)
+  })
+
+  output$location <- renderTable({
+    head(summary_data() %>% select(location, injury_count), input$num_rows)
+  })
+
+  output$age_sex <- renderPlot({
+    ggplot(summary_data(), aes(x = age, y = injury_count, color = sex)) +
+      geom_bar(stat = "identity") +
+      labs(title = "Injury Summary by Age and Sex", x = "Age Group", y = "Injury Count")
+  })
+}
+
+shinyApp(ui = ui, server = server)
+```
+
+Problem 4.4
+```{r}
+ui <- fluidPage(
+  titlePanel("Narrative Viewer"),
+  sidebarLayout(
+    sidebarPanel(
+      actionButton("previous_button", "Previous"),
+      actionButton("next_button", "Next")
+    ),
+    mainPanel(
+      textOutput("current_narrative")
+    )
+  )
+)
+
+server <- function(input, output, session) {
+  narratives_list <- reactive({
+    c(
+      "Narrative 1: The quick brown fox jumps over the lazy dog.",
+      "Narrative 2: A journey of a thousand miles begins with a single step.",
+      "Narrative 3: To be or not to be, that is the question.",
+      "Narrative 4: The only thing we have to fear is fear itself."
+    )
+  })
+
+  narrative_index <- reactiveVal(1)
+
+  output$current_narrative <- renderText({
+    narratives_list()[narrative_index()]
+  })
+
+  observeEvent(input$next_button, {
+    next_index <- narrative_index() + 1
+    if (next_index > length(narratives_list())) {
+      next_index <- 1
+    }
+    narrative_index(next_index)
+  })
+
+  observeEvent(input$previous_button, {
+    prev_index <- narrative_index() - 1
+    if (prev_index < 1) {
+      prev_index <- length(narratives_list())
+    }
+    narrative_index(prev_index)
+  })
+}
+
+shinyApp(ui = ui, server = server)
+```
